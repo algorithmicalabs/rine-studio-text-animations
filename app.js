@@ -1035,205 +1035,141 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 break;
             }
-            default:
-                drawScene(scene2, 0);
-        }
 
-        // ── NEW PREMIUM TRANSITIONS ────────────────────────────
-        // All of the below are implemented as separate cases below the switch
-    }
-
-    // Extend drawTransitionFrame with the new premium transitions
-    const _origDrawTransitionFrame = drawTransitionFrame;
-    function drawTransitionFrameExtra(transition, p, scene1, scene2) {
-        const W = canvas.width, H = canvas.height;
-        const ep = ease.inOutCubic(p);
-
-        switch (transition.type) {
-
-            // ── PUSH UP — scene 1 slides upward, scene 2 rises in from below ──────────
+            // ── PUSH UP ──────────────────────────────────────────────────────────
             case 'push-up': {
                 const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                 const snap2 = captureSceneSnapshot(scene2, 0);
                 const yOff  = ep * H;
-                ctx.save();
-                ctx.drawImage(snap1, 0, -yOff);       // scene 1 exits upward
-                ctx.drawImage(snap2, 0, H - yOff);    // scene 2 enters from bottom
-                ctx.restore();
+                ctx.drawImage(snap1, 0, -yOff);
+                ctx.drawImage(snap2, 0, H - yOff);
                 break;
             }
 
-            // ── PUSH LEFT — scene 1 slides left, scene 2 enters from right ──────────
+            // ── PUSH LEFT ─────────────────────────────────────────────────────────
             case 'push-left': {
                 const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                 const snap2 = captureSceneSnapshot(scene2, 0);
                 const xOff  = ep * W;
-                ctx.save();
-                ctx.drawImage(snap1, -xOff, 0);       // scene 1 exits left
-                ctx.drawImage(snap2, W - xOff, 0);    // scene 2 enters from right
-                ctx.restore();
+                ctx.drawImage(snap1, -xOff, 0);
+                ctx.drawImage(snap2, W - xOff, 0);
                 break;
             }
 
-            // ── SPEED ZOOM — scene 1 rushes toward viewer into white, scene 2 emerges ─
+            // ── SPEED ZOOM ───────────────────────────────────────────────────────
             case 'speed-zoom': {
                 if (p < 0.5) {
-                    // Scene 1 zooms toward viewer and overexposes to white
                     const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const zp    = ease.inQuint(p * 2);
                     const scale = 1 + zp * 2.5;
-                    const alpha = 1 - zp;
                     ctx.save();
-                    ctx.translate(W / 2, H / 2);
-                    ctx.scale(scale, scale);
-                    ctx.translate(-W / 2, -H / 2);
-                    ctx.globalAlpha = alpha;
+                    ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
+                    ctx.globalAlpha = 1 - zp;
                     ctx.drawImage(snap1, 0, 0);
                     ctx.restore();
-                    // White overexposure flash
                     ctx.save();
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.globalAlpha = zp * 0.95;
+                    ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = zp * 0.95;
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
                 } else {
-                    // Scene 2 emerges from white (zoomed out → normal)
                     const snap2 = captureSceneSnapshot(scene2, 0);
                     const zp    = ease.outQuint((p - 0.5) * 2);
                     const scale = 3 - zp * 2;
-                    const alpha = zp;
+                    ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); ctx.restore();
                     ctx.save();
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, W, H);
-                    ctx.restore();
-                    ctx.save();
-                    ctx.translate(W / 2, H / 2);
-                    ctx.scale(scale, scale);
-                    ctx.translate(-W / 2, -H / 2);
-                    ctx.globalAlpha = alpha;
+                    ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
+                    ctx.globalAlpha = zp;
                     ctx.drawImage(snap2, 0, 0);
                     ctx.restore();
                 }
                 break;
             }
 
-            // ── LENS BURST — radial white burst from center, like a camera overexpose ─
+            // ── LENS BURST ───────────────────────────────────────────────────────
             case 'lens-burst': {
-                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                const snap2 = captureSceneSnapshot(scene2, 0);
-
                 if (p < 0.45) {
-                    // Build up burst on scene 1
+                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const bp = ease.inCubic(p / 0.45);
                     ctx.drawImage(snap1, 0, 0);
                     const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
-                    grad.addColorStop(0,   `rgba(255,240,220,${bp * 0.98})`);
+                    grad.addColorStop(0, `rgba(255,240,220,${bp * 0.98})`);
                     grad.addColorStop(0.3, `rgba(255,200,150,${bp * 0.7})`);
-                    grad.addColorStop(1,   'rgba(255,200,150,0)');
-                    ctx.save();
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, W, H);
-                    ctx.restore();
+                    grad.addColorStop(1, 'rgba(255,200,150,0)');
+                    ctx.save(); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H); ctx.restore();
                 } else if (p < 0.55) {
-                    // Pure white at peak
-                    ctx.save();
-                    ctx.fillStyle = '#FFF9F5';
-                    ctx.fillRect(0, 0, W, H);
-                    ctx.restore();
+                    ctx.save(); ctx.fillStyle = '#FFF9F5'; ctx.fillRect(0, 0, W, H); ctx.restore();
                 } else {
-                    // Burst recedes to reveal scene 2
+                    const snap2 = captureSceneSnapshot(scene2, 0);
                     const bp = ease.outCubic((p - 0.55) / 0.45);
                     ctx.drawImage(snap2, 0, 0);
                     const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
-                    grad.addColorStop(0,   `rgba(255,240,220,${(1 - bp) * 0.98})`);
-                    grad.addColorStop(0.3, `rgba(255,200,150,${(1 - bp) * 0.7})`);
-                    grad.addColorStop(1,   'rgba(255,200,150,0)');
-                    ctx.save();
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, W, H);
-                    ctx.restore();
+                    grad.addColorStop(0, `rgba(255,240,220,${(1-bp) * 0.98})`);
+                    grad.addColorStop(0.3, `rgba(255,200,150,${(1-bp) * 0.7})`);
+                    grad.addColorStop(1, 'rgba(255,200,150,0)');
+                    ctx.save(); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H); ctx.restore();
                 }
                 break;
             }
 
-            // ── SPIN ZOOM — rotates + zooms out of scene 1 into scene 2 ─────────────
+            // ── SPIN ZOOM ────────────────────────────────────────────────────────
             case 'spin-zoom': {
                 if (p < 0.5) {
                     const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                    const sp = ease.inBack(p * 2);
+                    const sp = Math.max(0, ease.inBack(p * 2));
                     ctx.save();
-                    ctx.translate(W / 2, H / 2);
-                    ctx.rotate(sp * Math.PI * 0.4);
+                    ctx.translate(W/2, H/2); ctx.rotate(sp * Math.PI * 0.4);
                     ctx.scale(1 + sp * 0.5, 1 + sp * 0.5);
-                    ctx.globalAlpha = 1 - sp;
-                    ctx.translate(-W / 2, -H / 2);
-                    ctx.drawImage(snap1, 0, 0);
+                    ctx.globalAlpha = Math.max(0, 1 - sp);
+                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap1, 0, 0);
                     ctx.restore();
                 } else {
                     const snap2 = captureSceneSnapshot(scene2, 0);
-                    const sp = ease.outBack((p - 0.5) * 2);
+                    const sp = Math.min(1, ease.outBack((p - 0.5) * 2));
                     ctx.save();
-                    ctx.translate(W / 2, H / 2);
-                    ctx.rotate(-(1 - sp) * Math.PI * 0.4);
+                    ctx.translate(W/2, H/2); ctx.rotate(-(1 - sp) * Math.PI * 0.4);
                     ctx.scale(1 + (1 - sp) * 0.5, 1 + (1 - sp) * 0.5);
-                    ctx.globalAlpha = sp;
-                    ctx.translate(-W / 2, -H / 2);
-                    ctx.drawImage(snap2, 0, 0);
+                    ctx.globalAlpha = Math.min(1, sp);
+                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap2, 0, 0);
                     ctx.restore();
                 }
                 break;
             }
 
-            // ── WHIP PAN — ultra-fast horizontal motion blur wipe ─────────────────────
+            // ── WHIP PAN ─────────────────────────────────────────────────────────
             case 'whip-pan': {
-                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                const snap2 = captureSceneSnapshot(scene2, 0);
-                const blurStripes = 12;
-                const midP = 0.5;
-
-                if (p < midP) {
-                    // Scene 1 blurs out to the left
-                    const sp = ease.inQuint(p / midP);
-                    const xOffset = -sp * W * 0.6;
-                    ctx.drawImage(snap1, xOffset, 0);
-                    // Motion blur streaks
+                const blurStripes = 10;
+                if (p < 0.5) {
+                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                    const sp = ease.inQuint(p * 2);
+                    const xOff = -sp * W * 0.6;
+                    ctx.drawImage(snap1, xOff, 0);
                     for (let i = 0; i < blurStripes; i++) {
                         const frac = (i + 1) / blurStripes;
-                        ctx.save();
-                        ctx.globalAlpha = (1 - frac) * sp * 0.4;
-                        ctx.drawImage(snap1, xOffset - frac * W * 0.25, 0);
+                        ctx.save(); ctx.globalAlpha = (1 - frac) * sp * 0.35;
+                        ctx.drawImage(snap1, xOff - frac * W * 0.2, 0);
                         ctx.restore();
                     }
                 } else {
-                    // Scene 2 arrives from the right, slowing to a stop
-                    const sp = ease.outQuint((p - midP) / midP);
-                    const xOffset = (1 - sp) * W * 0.6;
-                    ctx.drawImage(snap2, xOffset, 0);
-                    // Motion blur streaks
+                    const snap2 = captureSceneSnapshot(scene2, 0);
+                    const sp = ease.outQuint((p - 0.5) * 2);
+                    const xOff = (1 - sp) * W * 0.6;
+                    ctx.drawImage(snap2, xOff, 0);
                     for (let i = 0; i < blurStripes; i++) {
                         const frac = (i + 1) / blurStripes;
-                        ctx.save();
-                        ctx.globalAlpha = (1 - frac) * (1 - sp) * 0.4;
-                        ctx.drawImage(snap2, xOffset + frac * W * 0.25, 0);
+                        ctx.save(); ctx.globalAlpha = (1 - frac) * (1 - sp) * 0.35;
+                        ctx.drawImage(snap2, xOff + frac * W * 0.2, 0);
                         ctx.restore();
                     }
                 }
                 break;
             }
 
-            // ── FILM BURN — warm orange burn wipes across the screen ─────────────────
+            // ── FILM BURN ────────────────────────────────────────────────────────
             case 'film-burn': {
                 const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                 const snap2 = captureSceneSnapshot(scene2, 0);
-
-                // Draw both scenes: scene1 fades, scene2 fades in
                 ctx.drawImage(snap1, 0, 0);
-                ctx.save();
-                ctx.globalAlpha = ep;
-                ctx.drawImage(snap2, 0, 0);
-                ctx.restore();
-
-                // Animated diagonal burn stripe
+                ctx.save(); ctx.globalAlpha = ep; ctx.drawImage(snap2, 0, 0); ctx.restore();
                 const burnX = ep * (W * 1.5) - W * 0.3;
                 const burnW = W * 0.45;
                 const burnGrad = ctx.createLinearGradient(burnX, 0, burnX + burnW, 0);
@@ -1260,16 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             default:
-                _origDrawTransitionFrame(transition, p, scene1, scene2);
-        }
-    }
-    // Override: route new keys to new handler, legacy keys to original
-    function drawTransitionFrame(transition, p, scene1, scene2) {
-        const newKeys = ['push-up','push-left','speed-zoom','lens-burst','spin-zoom','whip-pan','film-burn'];
-        if (newKeys.includes(transition.type)) {
-            drawTransitionFrameExtra(transition, p, scene1, scene2);
-        } else {
-            _origDrawTransitionFrame(transition, p, scene1, scene2);
+                drawScene(scene2, 0);
         }
     }
 
