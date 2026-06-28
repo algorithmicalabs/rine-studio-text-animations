@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const readoutCurrent      = document.getElementById('current-frame-readout');
     const readoutTotal        = document.getElementById('total-duration-readout');
     const ticksContainer      = document.getElementById('timeline-ticks');
-    const canvas              = document.getElementById('text-canvas');
+    let canvas              = document.getElementById('text-canvas');
     const canvasContainer     = document.getElementById('canvas-container');
     const canvasGridOverlay   = document.getElementById('canvas-grid-overlay');
     const btnToggleGrid       = document.getElementById('btn-toggle-grid');
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDeleteScene      = document.getElementById('btn-delete-scene');
     const btnPlayAll          = document.getElementById('btn-play-all');
 
-    const ctx = canvas.getContext('2d');
+    let ctx = canvas.getContext('2d');
 
     // ── LAYER DATA MODEL ──────────────────────────────────────
     let layerCounter = 1;
@@ -839,45 +839,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── TRANSITION RENDERER ───────────────────────────────────
-    // Renders a snapshot of a scene onto an offscreen canvas and returns its ImageData
+    // Renders a snapshot of a scene onto an offscreen canvas and returns it
     function captureSceneSnapshot(scene, time) {
         const off = document.createElement('canvas');
         off.width  = canvas.width;
         off.height = canvas.height;
         const oCtx = off.getContext('2d');
 
-        // Draw background
-        const w = off.width, h = off.height;
-        const bg = scene.background;
-        if (bg === 'sunset') {
-            const g = oCtx.createLinearGradient(0, 0, w, h);
-            g.addColorStop(0, '#FFB59E'); g.addColorStop(0.5, '#FD8863'); g.addColorStop(1, '#9F4122');
-            oCtx.fillStyle = g;
-        } else if (bg === 'sunset-radial') {
-            const g = oCtx.createRadialGradient(w/2, h/2, 50, w/2, h/2, Math.max(w, h)/1.2);
-            g.addColorStop(0, '#FFB59E'); g.addColorStop(0.3, '#FD8863'); g.addColorStop(1, '#9F4122');
-            oCtx.fillStyle = g;
-        } else { oCtx.fillStyle = bg; }
-        oCtx.fillRect(0, 0, w, h);
+        // Swap variables temporarily to draw onto the offscreen canvas
+        const originalCtx = ctx;
+        const originalCanvas = canvas;
+        ctx = oCtx;
+        canvas = off;
 
-        // Draw layers (simplified — at hold state for transitions)
-        scene.layers.forEach(layer => {
-            if (!layer.visible) return;
-            const layout = computeLayout(layer);
-            const { lines, totalH, lineHeightPx, fontSize } = layout;
-            const targetY = (1 - layer.posY / 100) * h;
-            const startY  = targetY - totalH / 2 + fontSize * 0.8;
-            oCtx.save();
-            oCtx.font = `400 ${fontSize}px Syne`;
-            oCtx.textBaseline = 'alphabetic';
-            oCtx.fillStyle = layer.textColor === 'sunset' ? '#FD8863' : layer.textColor;
-            lines.forEach((line, li) => {
-                const lineY = startY + li * lineHeightPx;
-                let x = layerLineXStart(layer, line.width, w);
-                line.chars.forEach(c => { oCtx.fillText(c.char, x, lineY); x += c.width + line.letterSpacingPx; });
-            });
-            oCtx.restore();
-        });
+        // Draw the scene at the target timestamp frame
+        drawScene(scene, time);
+
+        // Restore variables
+        ctx = originalCtx;
+        canvas = originalCanvas;
+
         return off;
     }
 
