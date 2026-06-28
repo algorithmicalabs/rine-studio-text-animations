@@ -858,24 +858,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const oCtx = off.getContext('2d');
 
         // Swap variables temporarily to draw onto the offscreen canvas
-        const originalCtx = ctx;
+        const originalCtx    = ctx;
         const originalCanvas = canvas;
-        ctx = oCtx;
+        ctx    = oCtx;
         canvas = off;
 
         // Draw the scene at the target timestamp frame
         drawScene(scene, time);
 
         // Restore variables
-        ctx = originalCtx;
+        ctx    = originalCtx;
         canvas = originalCanvas;
 
         return off;
     }
 
-    function drawTransitionFrame(transition, p, scene1, scene2) {
+    // ── PER-TRANSITION SNAPSHOT CACHE ─────────────────────────────────────────
+    // Snapshots are expensive (full offscreen draw). Cache them so each
+    // transition only pays the cost once, not once per frame (60×).
+    let _trSnap1 = null, _trSnap2 = null;   // active during a transition
+    let _trSnapKey = null;                   // 'sceneIdx' of the current pair
+
+    function getOrCaptureSnap1(scene1, sceneIdx) {
+        const key = sceneIdx + '_out';
+        if (_trSnapKey !== key) { _resetSnapCache(); }
+        if (!_trSnap1) {
+            _trSnap1   = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+            _trSnapKey = key;
+        }
+        return _trSnap1;
+    }
+    function getOrCaptureSnap2(scene2, sceneIdx) {
+        const key = sceneIdx + '_out';
+        if (_trSnapKey !== key) { _resetSnapCache(); }
+        if (!_trSnap2) {
+            _trSnap2   = captureSceneSnapshot(scene2, 0);
+            _trSnapKey = key;
+        }
+        return _trSnap2;
+    }
+    function _resetSnapCache() { _trSnap1 = null; _trSnap2 = null; _trSnapKey = null; }
+
+    function drawTransitionFrame(transition, p, scene1, scene2, _s1, _s2) {
         const W = canvas.width, H = canvas.height;
         const ep = ease.inOutCubic(p);
+        // Use pre-captured snapshots if provided, otherwise use cache
+        const sceneIdx = scenes.indexOf(scene1);
+        const snap1 = () => _s1 || getOrCaptureSnap1(scene1, sceneIdx);
+        const snap2 = () => _s2 || getOrCaptureSnap2(scene2, sceneIdx);
 
         switch (transition.type) {
             case 'cut': {
@@ -885,8 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 drawScene(scene1, computeSceneDuration(scene1));
                 ctx.save();
                 ctx.globalAlpha = ep;
-                const snap2 = captureSceneSnapshot(scene2, 0);
-                ctx.drawImage(snap2, 0, 0);
+                ctx.drawImage(snap2(), 0, 0);
                 ctx.restore();
                 break;
             }
@@ -910,24 +939,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             case 'wipe-right': {
                 drawScene(scene1, computeSceneDuration(scene1));
-                const snap = captureSceneSnapshot(scene2, 0);
                 ctx.save();
                 ctx.beginPath();
                 ctx.rect(0, 0, ep * W, H);
                 ctx.clip();
-                ctx.drawImage(snap, 0, 0);
+                ctx.drawImage(snap2(), 0, 0);
                 ctx.restore();
                 break;
             }
             case 'wipe-up': {
                 drawScene(scene1, computeSceneDuration(scene1));
-                const snap3 = captureSceneSnapshot(scene2, 0);
                 const revY = H - ep * H;
                 ctx.save();
                 ctx.beginPath();
                 ctx.rect(0, revY, W, H - revY);
                 ctx.clip();
-                ctx.drawImage(snap3, 0, 0);
+                ctx.drawImage(snap2(), 0, 0);
                 ctx.restore();
                 break;
             }
@@ -952,8 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.translate(W/2, H/2);
                     ctx.scale(scaleIn, scaleIn);
                     ctx.translate(-W/2, -H/2);
-                    const sn = captureSceneSnapshot(scene2, 0);
-                    ctx.drawImage(sn, 0, 0);
+                    ctx.drawImage(snap2(), 0, 0);
                     ctx.restore();
                     ctx.filter = 'none';
                 }
@@ -963,8 +989,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const base = p < 0.5 ? scene1 : scene2;
                 const baseTime = p < 0.5 ? computeSceneDuration(scene1) : 0;
                 drawScene(base, baseTime);
-                // RGB split slices
-                const snap4 = captureSceneSnapshot(base, baseTime);
+                // RGB split slices — use cached snap
+                const snap4 = p < 0.5 ? snap1() : snap2();
                 const intensity = Math.sin(p * Math.PI) * 30;
                 const slices = 8;
                 for (let s = 0; s < slices; s++) {
@@ -990,13 +1016,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             case 'scan-line': {
                 drawScene(scene1, computeSceneDuration(scene1));
-                const snap5 = captureSceneSnapshot(scene2, 0);
                 const scanY = ep * H;
                 ctx.save();
                 ctx.beginPath();
                 ctx.rect(0, 0, W, scanY);
                 ctx.clip();
-                ctx.drawImage(snap5, 0, 0);
+                ctx.drawImage(snap2(), 0, 0);
                 ctx.restore();
                 // The glowing scan line
                 const grad = ctx.createLinearGradient(0, scanY - 20, 0, scanY + 20);
@@ -1015,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const blockSize = 32;
                 const cols = Math.ceil(W / blockSize);
                 const rows = Math.ceil(H / blockSize);
-                const fromSnap = p < 0.5 ? captureSceneSnapshot(scene1, computeSceneDuration(scene1)) : captureSceneSnapshot(scene2, 0);
+                const fromSnap = p < 0.5 ? snap1() : snap2();
                 drawBackground(p < 0.5 ? scene1.background : scene2.background);
                 const scatterP = p < 0.5 ? p * 2 : (1 - p) * 2;
                 for (let r = 0; r < rows; r++) {
@@ -1038,48 +1063,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // ── PUSH UP ──────────────────────────────────────────────────────────
             case 'push-up': {
-                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                const snap2 = captureSceneSnapshot(scene2, 0);
-                const yOff  = ep * H;
-                ctx.drawImage(snap1, 0, -yOff);
-                ctx.drawImage(snap2, 0, H - yOff);
+                const yOff = ep * H;
+                ctx.drawImage(snap1(), 0, -yOff);
+                ctx.drawImage(snap2(), 0, H - yOff);
                 break;
             }
 
             // ── PUSH LEFT ─────────────────────────────────────────────────────────
             case 'push-left': {
-                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                const snap2 = captureSceneSnapshot(scene2, 0);
-                const xOff  = ep * W;
-                ctx.drawImage(snap1, -xOff, 0);
-                ctx.drawImage(snap2, W - xOff, 0);
+                const xOff = ep * W;
+                ctx.drawImage(snap1(), -xOff, 0);
+                ctx.drawImage(snap2(), W - xOff, 0);
                 break;
             }
 
             // ── SPEED ZOOM ───────────────────────────────────────────────────────
             case 'speed-zoom': {
                 if (p < 0.5) {
-                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const zp    = ease.inQuint(p * 2);
                     const scale = 1 + zp * 2.5;
                     ctx.save();
                     ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
                     ctx.globalAlpha = 1 - zp;
-                    ctx.drawImage(snap1, 0, 0);
+                    ctx.drawImage(snap1(), 0, 0);
                     ctx.restore();
                     ctx.save();
                     ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = zp * 0.95;
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
                 } else {
-                    const snap2 = captureSceneSnapshot(scene2, 0);
                     const zp    = ease.outQuint((p - 0.5) * 2);
                     const scale = 3 - zp * 2;
                     ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); ctx.restore();
                     ctx.save();
                     ctx.translate(W / 2, H / 2); ctx.scale(scale, scale); ctx.translate(-W / 2, -H / 2);
                     ctx.globalAlpha = zp;
-                    ctx.drawImage(snap2, 0, 0);
+                    ctx.drawImage(snap2(), 0, 0);
                     ctx.restore();
                 }
                 break;
@@ -1088,9 +1107,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // ── LENS BURST ───────────────────────────────────────────────────────
             case 'lens-burst': {
                 if (p < 0.45) {
-                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const bp = ease.inCubic(p / 0.45);
-                    ctx.drawImage(snap1, 0, 0);
+                    ctx.drawImage(snap1(), 0, 0);
                     const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
                     grad.addColorStop(0, `rgba(255,240,220,${bp * 0.98})`);
                     grad.addColorStop(0.3, `rgba(255,200,150,${bp * 0.7})`);
@@ -1099,9 +1117,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (p < 0.55) {
                     ctx.save(); ctx.fillStyle = '#FFF9F5'; ctx.fillRect(0, 0, W, H); ctx.restore();
                 } else {
-                    const snap2 = captureSceneSnapshot(scene2, 0);
                     const bp = ease.outCubic((p - 0.55) / 0.45);
-                    ctx.drawImage(snap2, 0, 0);
+                    ctx.drawImage(snap2(), 0, 0);
                     const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
                     grad.addColorStop(0, `rgba(255,240,220,${(1-bp) * 0.98})`);
                     grad.addColorStop(0.3, `rgba(255,200,150,${(1-bp) * 0.7})`);
@@ -1114,22 +1131,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // ── SPIN ZOOM ────────────────────────────────────────────────────────
             case 'spin-zoom': {
                 if (p < 0.5) {
-                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const sp = Math.max(0, ease.inBack(p * 2));
                     ctx.save();
                     ctx.translate(W/2, H/2); ctx.rotate(sp * Math.PI * 0.4);
                     ctx.scale(1 + sp * 0.5, 1 + sp * 0.5);
                     ctx.globalAlpha = Math.max(0, 1 - sp);
-                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap1, 0, 0);
+                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap1(), 0, 0);
                     ctx.restore();
                 } else {
-                    const snap2 = captureSceneSnapshot(scene2, 0);
                     const sp = Math.min(1, ease.outBack((p - 0.5) * 2));
                     ctx.save();
                     ctx.translate(W/2, H/2); ctx.rotate(-(1 - sp) * Math.PI * 0.4);
                     ctx.scale(1 + (1 - sp) * 0.5, 1 + (1 - sp) * 0.5);
                     ctx.globalAlpha = Math.min(1, sp);
-                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap2, 0, 0);
+                    ctx.translate(-W/2, -H/2); ctx.drawImage(snap2(), 0, 0);
                     ctx.restore();
                 }
                 break;
@@ -1139,25 +1154,23 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'whip-pan': {
                 const blurStripes = 10;
                 if (p < 0.5) {
-                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
                     const sp = ease.inQuint(p * 2);
                     const xOff = -sp * W * 0.6;
-                    ctx.drawImage(snap1, xOff, 0);
+                    ctx.drawImage(snap1(), xOff, 0);
                     for (let i = 0; i < blurStripes; i++) {
                         const frac = (i + 1) / blurStripes;
                         ctx.save(); ctx.globalAlpha = (1 - frac) * sp * 0.35;
-                        ctx.drawImage(snap1, xOff - frac * W * 0.2, 0);
+                        ctx.drawImage(snap1(), xOff - frac * W * 0.2, 0);
                         ctx.restore();
                     }
                 } else {
-                    const snap2 = captureSceneSnapshot(scene2, 0);
                     const sp = ease.outQuint((p - 0.5) * 2);
                     const xOff = (1 - sp) * W * 0.6;
-                    ctx.drawImage(snap2, xOff, 0);
+                    ctx.drawImage(snap2(), xOff, 0);
                     for (let i = 0; i < blurStripes; i++) {
                         const frac = (i + 1) / blurStripes;
                         ctx.save(); ctx.globalAlpha = (1 - frac) * (1 - sp) * 0.35;
-                        ctx.drawImage(snap2, xOff + frac * W * 0.2, 0);
+                        ctx.drawImage(snap2(), xOff + frac * W * 0.2, 0);
                         ctx.restore();
                     }
                 }
@@ -1166,10 +1179,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // ── FILM BURN ────────────────────────────────────────────────────────
             case 'film-burn': {
-                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
-                const snap2 = captureSceneSnapshot(scene2, 0);
-                ctx.drawImage(snap1, 0, 0);
-                ctx.save(); ctx.globalAlpha = ep; ctx.drawImage(snap2, 0, 0); ctx.restore();
+                ctx.drawImage(snap1(), 0, 0);
+                ctx.save(); ctx.globalAlpha = ep; ctx.drawImage(snap2(), 0, 0); ctx.restore();
                 const burnX = ep * (W * 1.5) - W * 0.3;
                 const burnW = W * 0.45;
                 const burnGrad = ctx.createLinearGradient(burnX, 0, burnX + burnW, 0);
@@ -2365,6 +2376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         recInTr = false; recTrTime = 0;
                         recSceneIdx++;
                         recTime = 0;
+                        _resetSnapCache(); // free snapshot memory
                         if (recSceneIdx >= scenes.length) {
                             // Yield one more rAF so the last frame is captured before stopping
                             requestAnimationFrame(() => stopRecording());
@@ -2377,6 +2389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Scene finished — check for transition
                         const tr = transitions[recSceneIdx];
                         if (tr && tr.type !== 'cut' && tr.duration > 0 && recSceneIdx < scenes.length - 1) {
+                            _resetSnapCache(); // ensure fresh snap for this pair
                             recInTr = true; recTrTime = 0;
                         } else {
                             recSceneIdx++; recTime = 0;
