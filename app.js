@@ -96,15 +96,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── TRANSITION DATA MODEL ─────────────────────────────────
     const TRANSITION_TYPES = [
-        { key: 'cut',        label: '✂ Hard Cut'       },
-        { key: 'crossfade',  label: '◐ Cross-Fade'     },
-        { key: 'flash',      label: '⚡ Flash/Flare'    },
-        { key: 'wipe-right', label: '▶ Wipe Right'     },
-        { key: 'wipe-up',    label: '▲ Wipe Up'        },
-        { key: 'zoom-through',label: '⊙ Zoom Through'  },
-        { key: 'glitch',     label: '📺 Glitch'         },
-        { key: 'scan-line',  label: '🔬 Blueprint Scan' },
-        { key: 'scatter',    label: '⬡ Pixel Scatter'  },
+        { key: 'cut',        label: '✂ Hard Cut'        },
+        { key: 'crossfade',  label: '◐ Cross-Fade'      },
+        { key: 'flash',      label: '⚡ Flash/Flare'     },
+        { key: 'wipe-right', label: '▶ Wipe Right'      },
+        { key: 'wipe-up',    label: '▲ Wipe Up'         },
+        { key: 'zoom-through',label:'⊙ Zoom Through'   },
+        { key: 'glitch',     label: '📺 Glitch'          },
+        { key: 'scan-line',  label: '🔬 Blueprint Scan'  },
+        { key: 'scatter',    label: '⬡ Pixel Scatter'   },
+        // New premium transitions
+        { key: 'push-up',    label: '⬆ Push Up'         },
+        { key: 'push-left',  label: '⬅ Push Left'       },
+        { key: 'speed-zoom', label: '🔥 Speed Zoom'      },
+        { key: 'lens-burst', label: '☀ Lens Burst'      },
+        { key: 'spin-zoom',  label: '🌀 Spin Zoom'       },
+        { key: 'whip-pan',   label: '💨 Whip Pan'        },
+        { key: 'film-burn',  label: '🎥 Film Burn'       },
     ];
 
     function createTransition(overrides = {}) {
@@ -242,10 +250,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── EASING ────────────────────────────────────────────────
     const ease = {
-        outQuint:  x => 1 - Math.pow(1 - x, 5),
-        outCubic:  x => 1 - Math.pow(1 - x, 3),
-        outBack:   x => { const c = 1.70158, c3 = c + 1; return 1 + c3 * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
+        outQuint:   x => 1 - Math.pow(1 - x, 5),
+        outCubic:   x => 1 - Math.pow(1 - x, 3),
+        outBack:    x => { const c = 1.70158, c3 = c + 1; return 1 + c3 * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
         inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+        inQuint:    x => x * x * x * x * x,
+        inCubic:    x => x * x * x,
+        inBack:     x => { const c = 1.70158, c3 = c + 1; return c3 * x * x * x - c * x * x; },
     };
 
     // ── LAYER UI ──────────────────────────────────────────────
@@ -1026,6 +1037,239 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             default:
                 drawScene(scene2, 0);
+        }
+
+        // ── NEW PREMIUM TRANSITIONS ────────────────────────────
+        // All of the below are implemented as separate cases below the switch
+    }
+
+    // Extend drawTransitionFrame with the new premium transitions
+    const _origDrawTransitionFrame = drawTransitionFrame;
+    function drawTransitionFrameExtra(transition, p, scene1, scene2) {
+        const W = canvas.width, H = canvas.height;
+        const ep = ease.inOutCubic(p);
+
+        switch (transition.type) {
+
+            // ── PUSH UP — scene 1 slides upward, scene 2 rises in from below ──────────
+            case 'push-up': {
+                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                const snap2 = captureSceneSnapshot(scene2, 0);
+                const yOff  = ep * H;
+                ctx.save();
+                ctx.drawImage(snap1, 0, -yOff);       // scene 1 exits upward
+                ctx.drawImage(snap2, 0, H - yOff);    // scene 2 enters from bottom
+                ctx.restore();
+                break;
+            }
+
+            // ── PUSH LEFT — scene 1 slides left, scene 2 enters from right ──────────
+            case 'push-left': {
+                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                const snap2 = captureSceneSnapshot(scene2, 0);
+                const xOff  = ep * W;
+                ctx.save();
+                ctx.drawImage(snap1, -xOff, 0);       // scene 1 exits left
+                ctx.drawImage(snap2, W - xOff, 0);    // scene 2 enters from right
+                ctx.restore();
+                break;
+            }
+
+            // ── SPEED ZOOM — scene 1 rushes toward viewer into white, scene 2 emerges ─
+            case 'speed-zoom': {
+                if (p < 0.5) {
+                    // Scene 1 zooms toward viewer and overexposes to white
+                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                    const zp    = ease.inQuint(p * 2);
+                    const scale = 1 + zp * 2.5;
+                    const alpha = 1 - zp;
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.globalAlpha = alpha;
+                    ctx.drawImage(snap1, 0, 0);
+                    ctx.restore();
+                    // White overexposure flash
+                    ctx.save();
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.globalAlpha = zp * 0.95;
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+                } else {
+                    // Scene 2 emerges from white (zoomed out → normal)
+                    const snap2 = captureSceneSnapshot(scene2, 0);
+                    const zp    = ease.outQuint((p - 0.5) * 2);
+                    const scale = 3 - zp * 2;
+                    const alpha = zp;
+                    ctx.save();
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.globalAlpha = alpha;
+                    ctx.drawImage(snap2, 0, 0);
+                    ctx.restore();
+                }
+                break;
+            }
+
+            // ── LENS BURST — radial white burst from center, like a camera overexpose ─
+            case 'lens-burst': {
+                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                const snap2 = captureSceneSnapshot(scene2, 0);
+
+                if (p < 0.45) {
+                    // Build up burst on scene 1
+                    const bp = ease.inCubic(p / 0.45);
+                    ctx.drawImage(snap1, 0, 0);
+                    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
+                    grad.addColorStop(0,   `rgba(255,240,220,${bp * 0.98})`);
+                    grad.addColorStop(0.3, `rgba(255,200,150,${bp * 0.7})`);
+                    grad.addColorStop(1,   'rgba(255,200,150,0)');
+                    ctx.save();
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+                } else if (p < 0.55) {
+                    // Pure white at peak
+                    ctx.save();
+                    ctx.fillStyle = '#FFF9F5';
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+                } else {
+                    // Burst recedes to reveal scene 2
+                    const bp = ease.outCubic((p - 0.55) / 0.45);
+                    ctx.drawImage(snap2, 0, 0);
+                    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
+                    grad.addColorStop(0,   `rgba(255,240,220,${(1 - bp) * 0.98})`);
+                    grad.addColorStop(0.3, `rgba(255,200,150,${(1 - bp) * 0.7})`);
+                    grad.addColorStop(1,   'rgba(255,200,150,0)');
+                    ctx.save();
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+                }
+                break;
+            }
+
+            // ── SPIN ZOOM — rotates + zooms out of scene 1 into scene 2 ─────────────
+            case 'spin-zoom': {
+                if (p < 0.5) {
+                    const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                    const sp = ease.inBack(p * 2);
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.rotate(sp * Math.PI * 0.4);
+                    ctx.scale(1 + sp * 0.5, 1 + sp * 0.5);
+                    ctx.globalAlpha = 1 - sp;
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.drawImage(snap1, 0, 0);
+                    ctx.restore();
+                } else {
+                    const snap2 = captureSceneSnapshot(scene2, 0);
+                    const sp = ease.outBack((p - 0.5) * 2);
+                    ctx.save();
+                    ctx.translate(W / 2, H / 2);
+                    ctx.rotate(-(1 - sp) * Math.PI * 0.4);
+                    ctx.scale(1 + (1 - sp) * 0.5, 1 + (1 - sp) * 0.5);
+                    ctx.globalAlpha = sp;
+                    ctx.translate(-W / 2, -H / 2);
+                    ctx.drawImage(snap2, 0, 0);
+                    ctx.restore();
+                }
+                break;
+            }
+
+            // ── WHIP PAN — ultra-fast horizontal motion blur wipe ─────────────────────
+            case 'whip-pan': {
+                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                const snap2 = captureSceneSnapshot(scene2, 0);
+                const blurStripes = 12;
+                const midP = 0.5;
+
+                if (p < midP) {
+                    // Scene 1 blurs out to the left
+                    const sp = ease.inQuint(p / midP);
+                    const xOffset = -sp * W * 0.6;
+                    ctx.drawImage(snap1, xOffset, 0);
+                    // Motion blur streaks
+                    for (let i = 0; i < blurStripes; i++) {
+                        const frac = (i + 1) / blurStripes;
+                        ctx.save();
+                        ctx.globalAlpha = (1 - frac) * sp * 0.4;
+                        ctx.drawImage(snap1, xOffset - frac * W * 0.25, 0);
+                        ctx.restore();
+                    }
+                } else {
+                    // Scene 2 arrives from the right, slowing to a stop
+                    const sp = ease.outQuint((p - midP) / midP);
+                    const xOffset = (1 - sp) * W * 0.6;
+                    ctx.drawImage(snap2, xOffset, 0);
+                    // Motion blur streaks
+                    for (let i = 0; i < blurStripes; i++) {
+                        const frac = (i + 1) / blurStripes;
+                        ctx.save();
+                        ctx.globalAlpha = (1 - frac) * (1 - sp) * 0.4;
+                        ctx.drawImage(snap2, xOffset + frac * W * 0.25, 0);
+                        ctx.restore();
+                    }
+                }
+                break;
+            }
+
+            // ── FILM BURN — warm orange burn wipes across the screen ─────────────────
+            case 'film-burn': {
+                const snap1 = captureSceneSnapshot(scene1, computeSceneDuration(scene1));
+                const snap2 = captureSceneSnapshot(scene2, 0);
+
+                // Draw both scenes: scene1 fades, scene2 fades in
+                ctx.drawImage(snap1, 0, 0);
+                ctx.save();
+                ctx.globalAlpha = ep;
+                ctx.drawImage(snap2, 0, 0);
+                ctx.restore();
+
+                // Animated diagonal burn stripe
+                const burnX = ep * (W * 1.5) - W * 0.3;
+                const burnW = W * 0.45;
+                const burnGrad = ctx.createLinearGradient(burnX, 0, burnX + burnW, 0);
+                burnGrad.addColorStop(0,    'rgba(255,120,30,0)');
+                burnGrad.addColorStop(0.15, `rgba(255,160,60,${0.5 * Math.sin(p * Math.PI)})`);
+                burnGrad.addColorStop(0.4,  `rgba(255,90,10,${0.85 * Math.sin(p * Math.PI)})`);
+                burnGrad.addColorStop(0.6,  `rgba(200,50,0,${0.9 * Math.sin(p * Math.PI)})`);
+                burnGrad.addColorStop(0.85, `rgba(255,160,60,${0.5 * Math.sin(p * Math.PI)})`);
+                burnGrad.addColorStop(1,    'rgba(255,120,30,0)');
+                ctx.save();
+                ctx.fillStyle = burnGrad;
+                ctx.fillRect(0, 0, W, H);
+                // Grain overlay during peak burn
+                if (p > 0.25 && p < 0.75) {
+                    ctx.globalAlpha = 0.06 * Math.sin(p * Math.PI);
+                    for (let gy = 0; gy < H; gy += 3) {
+                        const gv = Math.random() * 180 | 0;
+                        ctx.fillStyle = `rgb(${gv},${gv},${gv})`;
+                        ctx.fillRect(0, gy, W, 1);
+                    }
+                }
+                ctx.restore();
+                break;
+            }
+
+            default:
+                _origDrawTransitionFrame(transition, p, scene1, scene2);
+        }
+    }
+    // Override: route new keys to new handler, legacy keys to original
+    function drawTransitionFrame(transition, p, scene1, scene2) {
+        const newKeys = ['push-up','push-left','speed-zoom','lens-burst','spin-zoom','whip-pan','film-burn'];
+        if (newKeys.includes(transition.type)) {
+            drawTransitionFrameExtra(transition, p, scene1, scene2);
+        } else {
+            _origDrawTransitionFrame(transition, p, scene1, scene2);
         }
     }
 
