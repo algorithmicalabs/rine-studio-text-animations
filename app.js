@@ -2323,57 +2323,86 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Rendering all scenes + transitions… please wait.');
 
         const REC_FPS = 60;
+        const STEP    = 1 / REC_FPS;
         const stream  = canvas.captureStream(REC_FPS);
-        let opts = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 25_000_000 };
-        if (!MediaRecorder.isTypeSupported(opts.mimeType)) opts = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 25_000_000 };
-        if (!MediaRecorder.isTypeSupported(opts.mimeType)) opts = { mimeType: 'video/webm', videoBitsPerSecond: 25_000_000 };
+        let opts = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 30_000_000 };
+        if (!MediaRecorder.isTypeSupported(opts.mimeType)) opts = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 30_000_000 };
+        if (!MediaRecorder.isTypeSupported(opts.mimeType)) opts = { mimeType: 'video/webm', videoBitsPerSecond: 30_000_000 };
 
         mediaRecorder = new MediaRecorder(stream, opts);
         mediaRecorder.ondataavailable = e => { if (e.data?.size > 0) recordedChunks.push(e.data); };
         mediaRecorder.onstop = finishRecording;
 
-        requestAnimationFrame(() => {
-            mediaRecorder.start();
-            const STEP = 1 / REC_FPS;
-            let recSceneIdx = 0;
-            let recTime     = 0;
-            let recInTr     = false;
-            let recTrTime   = 0;
+        // State for the export pump
+        let recSceneIdx = 0;
+        let recTime     = 0;
+        let recInTr     = false;
+        let recTrTime   = 0;
 
-            function renderRecordingFrame() {
+        // Draw the very first frame before starting the recorder
+        // so it doesn't begin with a blank/stale canvas frame
+        drawScene(scenes[0], 0);
+
+        requestAnimationFrame(() => {
+            mediaRecorder.start(100); // emit chunks every 100 ms
+
+            // ── Deterministic frame pump ──────────────────────────────────────────
+            // Each iteration: 1) draw the correct frame at the exact timestamp,
+            // 2) yield one rAF so captureStream() grabs the rendered pixels,
+            // 3) schedule the next frame via setTimeout(0) to avoid blocking the UI.
+            function pumpFrame() {
                 if (!isRecording) return;
 
+                // ── Compute & draw the current frame ────────────────────────────
                 if (recInTr) {
                     const tr = transitions[recSceneIdx];
-                    const tp = tr.duration > 0 ? recTrTime / tr.duration : 1;
-                    drawTransitionFrame(tr, Math.max(0, Math.min(1, tp)), scenes[recSceneIdx], scenes[recSceneIdx + 1]);
+                    const tp = tr.duration > 0 ? Math.min(1, recTrTime / tr.duration) : 1;
+                    drawTransitionFrame(tr, tp, scenes[recSceneIdx], scenes[recSceneIdx + 1]);
                     currentTime = computeSceneDuration(scenes[recSceneIdx]);
                     activeSceneIdx = recSceneIdx;
                     recTrTime += STEP;
                     if (recTrTime >= tr.duration) {
-                        recInTr = false; recTrTime = 0; recSceneIdx++; recTime = 0;
-                        if (recSceneIdx >= scenes.length) { stopRecording(); return; }
+                        recInTr = false; recTrTime = 0;
+                        recSceneIdx++;
+                        recTime = 0;
+                        if (recSceneIdx >= scenes.length) {
+                            // Yield one more rAF so the last frame is captured before stopping
+                            requestAnimationFrame(() => stopRecording());
+                            return;
+                        }
                     }
                 } else {
                     const sceneDur = computeSceneDuration(scenes[recSceneIdx]);
                     if (recTime >= sceneDur) {
-                        // Check if there's a real transition next
+                        // Scene finished — check for transition
                         const tr = transitions[recSceneIdx];
                         if (tr && tr.type !== 'cut' && tr.duration > 0 && recSceneIdx < scenes.length - 1) {
                             recInTr = true; recTrTime = 0;
                         } else {
                             recSceneIdx++; recTime = 0;
-                            if (recSceneIdx >= scenes.length) { stopRecording(); return; }
+                            if (recSceneIdx >= scenes.length) {
+                                requestAnimationFrame(() => stopRecording());
+                                return;
+                            }
                         }
-                        requestAnimationFrame(renderRecordingFrame); return;
+                        // Draw the first frame of the new state immediately
+                        pumpFrame(); return;
                     }
                     drawScene(scenes[recSceneIdx], recTime);
-                    currentTime = recTime; activeSceneIdx = recSceneIdx; syncTimeline();
+                    currentTime = recTime;
+                    activeSceneIdx = recSceneIdx;
                     recTime += STEP;
                 }
-                requestAnimationFrame(renderRecordingFrame);
+
+                // ── Yield one rAF so captureStream grabs the rendered pixels ──
+                requestAnimationFrame(() => {
+                    // Then schedule the next frame on a fresh task to keep the
+                    // event loop breathing and prevent UI jank / tab kills.
+                    setTimeout(pumpFrame, 0);
+                });
             }
-            requestAnimationFrame(renderRecordingFrame);
+
+            pumpFrame();
         });
     }
 
