@@ -90,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
             name: `Scene ${sceneCounter++}`,
             background: '#F9F9F9',
             layers: [createLayer()],
-            fixedDuration: null,  // null = free-running; number = locked seconds
             ...overrides,
         };
     }
@@ -159,26 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── DURATION HELPERS ──────────────────────────────────────
 
-    // Natural duration = max layer endpoint, ignoring any fixedDuration lock
-    function computeNaturalDuration(scene) {
+    // Natural duration = max layer endpoint
+    function computeSceneDuration(scene) {
         let max = 0;
         scene.layers.forEach(l => {
             const end = l.startTime + l.inDuration + l.holdDuration + l.outDuration;
             if (end > max) max = end;
         });
         return Math.max(max, 0.1);
-    }
-
-    // Effective duration: locked value if set, otherwise natural
-    function computeSceneDuration(scene) {
-        return scene.fixedDuration != null ? scene.fixedDuration : computeNaturalDuration(scene);
-    }
-
-    // Scale factor to apply to layer times when a fixedDuration is set
-    function getSceneFactor(scene) {
-        if (scene.fixedDuration == null) return 1;
-        const nat = computeNaturalDuration(scene);
-        return nat > 0 ? scene.fixedDuration / nat : 1;
     }
 
     function computeTotalDuration() {
@@ -407,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nameEl.className = 'scene-card-name';
             nameEl.textContent = scene.name;
             const durEl = document.createElement('span');
-            durEl.className = 'scene-card-duration' + (scene.fixedDuration != null ? ' locked' : '');
+            durEl.className = 'scene-card-duration';
             durEl.textContent = computeSceneDuration(scene).toFixed(1) + 's';
             info.appendChild(nameEl);
             info.appendChild(durEl);
@@ -416,66 +403,16 @@ document.addEventListener('DOMContentLoaded', () => {
             card.appendChild(thumbWrap);
             card.appendChild(info);
 
-            // ── Scene duration row (lock + slider) ──
-            const durRow = document.createElement('div');
-            durRow.className = 'scene-duration-row';
-            durRow.addEventListener('click', e => e.stopPropagation());
-
-            const lockBtn = document.createElement('button');
-            lockBtn.className = 'scene-dur-lock-btn' + (scene.fixedDuration != null ? ' locked' : '');
-            lockBtn.title = scene.fixedDuration != null ? 'Unlock scene duration' : 'Lock scene duration';
-            lockBtn.textContent = scene.fixedDuration != null ? '🔒' : '🔓';
-
-            const naturalDur = computeNaturalDuration(scene);
-            const durSlider = document.createElement('input');
-            durSlider.type  = 'range';
-            durSlider.className = 'scene-dur-slider' + (scene.fixedDuration != null ? '' : ' disabled');
-            durSlider.min   = '1';
-            durSlider.max   = '300';   // 0.1s – 30s in tenths
-            durSlider.step  = '1';
-            durSlider.value = Math.round((scene.fixedDuration ?? naturalDur) * 10);
-            durSlider.disabled = scene.fixedDuration == null;
-
-            const durValLabel = document.createElement('span');
-            durValLabel.className = 'scene-dur-val';
-            durValLabel.textContent = (scene.fixedDuration ?? naturalDur).toFixed(1) + 's';
-
-            // Lock / unlock toggle
-            lockBtn.addEventListener('click', e => {
-                e.stopPropagation();
-                if (scene.fixedDuration != null) {
-                    // Unlock
-                    scene.fixedDuration = null;
-                } else {
-                    // Lock at current natural duration
-                    scene.fixedDuration = computeNaturalDuration(scene);
-                    durSlider.value = Math.round(scene.fixedDuration * 10);
+            // Prevent card drag when interacting with timeline or inputs
+            card.addEventListener('mousedown', e => {
+                const isControl = e.target.closest('.scene-mini-timeline') ||
+                                  e.target.closest('select') ||
+                                  e.target.closest('input') ||
+                                  e.target.closest('button');
+                if (isControl) {
+                    card.draggable = false;
                 }
-                renderSceneList();
-                requestAnimationFrame(() => renderMiniTimeline(getActiveScene(), activeSceneIdx));
-                syncTimeline(); draw();
             });
-
-            // Real-time slider drag
-            durSlider.addEventListener('input', e => {
-                const val = parseInt(e.target.value) / 10;
-                scene.fixedDuration = val;
-                durValLabel.textContent = val.toFixed(1) + 's';
-                durEl.textContent = val.toFixed(1) + 's';
-                renderMiniTimeline(scene, idx);
-                syncTimeline(); draw(); refreshSceneThumbnails();
-            });
-
-            durRow.appendChild(lockBtn);
-            durRow.appendChild(durSlider);
-            durRow.appendChild(durValLabel);
-            card.appendChild(durRow);
-
-            // Prevent card drag when interacting with slider row
-            durRow.addEventListener('dragstart', e => e.stopPropagation());
-            durRow.addEventListener('mousedown', e => e.stopPropagation());
-            durSlider.addEventListener('dragstart', e => e.preventDefault());
-            lockBtn.addEventListener('dragstart', e => e.preventDefault());
 
             // Mini-timeline (only for active scene)
             if (idx === activeSceneIdx) {
@@ -1114,12 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── MAIN DRAW ─────────────────────────────────────────────
     function drawScene(scene, time) {
         drawBackground(scene.background);
-        // Apply scene-level time scaling (fixedDuration feature)
-        const factor    = getSceneFactor(scene);
-        const scaledTime = factor !== 1 ? time / factor : time;
         scene.layers.forEach(layer => {
             if (!layer.visible) return;
-            const localTime     = scaledTime - layer.startTime;
+            const localTime     = time - layer.startTime;
             const layerDuration = layer.inDuration + layer.holdDuration + layer.outDuration;
             if (localTime < 0 || localTime > layerDuration) return;
             const layout = computeLayout(layer);
