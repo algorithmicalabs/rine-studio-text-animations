@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RINE STUDIO // Motion Creator & Text Animator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 20px Wireframe Architectural Background -->
+    <div class="wireframe-bg"></div>
+
+    <!-- Custom Cursor Overlay -->
+    <div id="custom-cursor"></div>
+
+    <div class="app-container">
+        <!-- Sidebar Controls Console -->
+        <aside class="sidebar">
+            <!-- Console Header -->
+            <div class="console-header">
+                <div class="brand-section">
+                    <div class="brand-logo-frame" data-cursor="btn">
+                        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6">
+                            <rect x="5" y="5" width="90" height="90"/>
+                            <line x1="30" y1="25" x2="30" y2="75"/>
+                            <line x1="30" y1="25" x2="65" y2="25"/>
+                            <line x1="65" y1="25" x2="65" y2="50"/>
+                            <line x1="30" y1="50" x2="65" y2="50"/>
+                            <line x1="50" y1="50" x2="70" y2="75"/>
+                        </svg>
+                    </div>
+                    <span class="brand-title">Rine Studio</span>
+                </div>
+                <div class="system-status">
+                    <span id="status-text">SYS_OK</span>
+                    <span class="status-dot" id="system-dot"></span>
+                </div>
+            </div>
+
+            <!-- Parameters Panels -->
+            <div class="parameters-panel">
+
+                <!-- 00. Layers Panel -->
+                <div class="bento-card layers-card">
+                    <div class="layers-panel-header">
+                        <span class="bento-card-title" style="margin-bottom:0;">00 / Layers</span>
+                        <div class="layers-actions">
+                            <button id="btn-add-layer" class="layer-action-btn" data-cursor="btn" title="Add Layer">+</button>
+                            <button id="btn-delete-layer" class="layer-action-btn layer-action-btn--danger" data-cursor="btn" title="Delete Layer">&#x2715;</button>
+                        </div>
+                    </div>
+                    <div id="layer-list" class="layer-list"></div>
+                </div>
+
+                <!-- 1. Text Entry Card -->
+                <div class="bento-card">
+                    <div class="bento-card-title">01 / Text Input</div>
+                    <textarea id="text-input" class="text-input-field" rows="3" placeholder="Enter text here..." data-cursor="textarea">Rine Studio
+designs working
+software systems.</textarea>
+                </div>
+
+                <!-- 2. Typography Card -->
+                <div class="bento-card">
+                    <div class="bento-card-title">02 / Typography</div>
+                    
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Font Size</span>
+                            <span class="input-label val" id="font-size-val">60px</span>
+                        </div>
+                        <input type="range" id="slider-font-size" class="brand-slider" min="20" max="150" value="60" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Tracking (Spacing)</span>
+                            <span class="input-label val" id="letter-spacing-val">-0.02em</span>
+                        </div>
+                        <input type="range" id="slider-letter-spacing" class="brand-slider" min="-20" max="30" value="-2" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Line Height</span>
+                            <span class="input-label val" id="line-height-val">1.1x</span>
+                        </div>
+                        <input type="range" id="slider-line-height" class="brand-slider" min="8" max="25" value="11" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <span class="input-label">Alignment</span>
+                        <div class="btn-group">
+                            <button class="btn-group-item" data-align="left" data-cursor="btn">Left</button>
+                            <button class="btn-group-item active" data-align="center" data-cursor="btn">Center</button>
+                            <button class="btn-group-item" data-align="right" data-cursor="btn">Right</button>
+                        </div>
+                    </div>
+
+                    <div class="control-slider-container">
+                        <span class="input-label">Text Fill</span>
+                        <div class="swatch-row">
+                            <button class="swatch active" style="background-color: #000000;" data-color="#000000" title="Primary Black" data-cursor="btn"></button>
+                            <button class="swatch" style="background-color: #5D5F5F;" data-color="#5D5F5F" title="Secondary Slate" data-cursor="btn"></button>
+                            <button class="swatch" style="background-color: #F9F9F9;" data-color="#F9F9F9" title="Clinical White" data-cursor="btn"></button>
+                            <button class="swatch" style="background: linear-gradient(135deg, #FFB59E 0%, #FD8863 50%, #9F4122 100%);" data-color="sunset" title="Sunset Gradient" data-cursor="btn"></button>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- 4. Animation Settings Card -->
+                <div class="bento-card">
+                    <div class="bento-card-title">04 / Timing Controls</div>
+                    
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Start Time (Delay)</span>
+                            <span class="input-label val" id="start-time-val">0.0s</span>
+                        </div>
+                        <input type="range" id="slider-start-time" class="brand-slider" min="0" max="100" value="0" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">In Duration (Intro)</span>
+                            <span class="input-label val" id="in-duration-val">1.5s</span>
+                        </div>
+                        <input type="range" id="slider-in-duration" class="brand-slider" min="2" max="30" value="15" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Hold Duration (Static)</span>
+                            <span class="input-label val" id="hold-duration-val">1.0s</span>
+                        </div>
+                        <input type="range" id="slider-hold-duration" class="brand-slider" min="0" max="50" value="10" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Out Duration (Outro)</span>
+                            <span class="input-label val" id="out-duration-val">1.0s</span>
+                        </div>
+                        <input type="range" id="slider-out-duration" class="brand-slider" min="0" max="30" value="10" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container" style="margin-top:2px;">
+                        <div class="preset-style-row">
+                            <div class="preset-style-col">
+                                <span class="input-label">In Style</span>
+                                <select id="select-in-preset" class="brand-select" data-cursor="slider">
+                                    <optgroup label="── Character Level">
+                                        <option value="blueprint">System Draw</option>
+                                        <option value="typewriter">Typewriter</option>
+                                        <option value="slidein">Slide In</option>
+                                        <option value="decode">Decode</option>
+                                        <option value="pop">Pop</option>
+                                        <option value="scatter">Scatter</option>
+                                    </optgroup>
+                                    <optgroup label="── Word Level">
+                                        <option value="focus">Focus Keynote</option>
+                                        <option value="stamp">Stamp</option>
+                                    </optgroup>
+                                    <optgroup label="── Line Level">
+                                        <option value="slideup">Slide Up</option>
+                                        <option value="signal">Signal Scan</option>
+                                        <option value="venetian">Venetian</option>
+                                        <option value="curtain">Curtain</option>
+                                        <option value="glitchshift">Glitch Shift</option>
+                                    </optgroup>
+                                    <optgroup label="── AI & Tech Signature">
+                                        <option value="gemini">Gemini Aura</option>
+                                        <option value="claude">Claude Rise</option>
+                                        <option value="grok">Grok Binary</option>
+                                        <option value="sora">Sora Wave</option>
+                                        <option value="neural">Neural Grid</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="preset-style-divider"></div>
+                            <div class="preset-style-col">
+                                <span class="input-label">Out Style</span>
+                                <select id="select-out-preset" class="brand-select" data-cursor="slider">
+                                    <optgroup label="── Character Level">
+                                        <option value="blueprint">System Draw</option>
+                                        <option value="typewriter">Typewriter</option>
+                                        <option value="slidein">Slide In</option>
+                                        <option value="decode">Decode</option>
+                                        <option value="pop">Pop</option>
+                                        <option value="scatter">Scatter</option>
+                                    </optgroup>
+                                    <optgroup label="── Word Level">
+                                        <option value="focus">Focus Keynote</option>
+                                        <option value="stamp">Stamp</option>
+                                    </optgroup>
+                                    <optgroup label="── Line Level">
+                                        <option value="slideup">Slide Up</option>
+                                        <option value="signal">Signal Scan</option>
+                                        <option value="venetian">Venetian</option>
+                                        <option value="curtain">Curtain</option>
+                                        <option value="glitchshift">Glitch Shift</option>
+                                    </optgroup>
+                                    <optgroup label="── AI & Tech Signature">
+                                        <option value="gemini">Gemini Aura</option>
+                                        <option value="claude">Claude Rise</option>
+                                        <option value="grok">Grok Binary</option>
+                                        <option value="sora">Sora Wave</option>
+                                        <option value="neural">Neural Grid</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Stagger Delay</span>
+                            <span class="input-label val" id="stagger-val">120ms</span>
+                        </div>
+                        <input type="range" id="slider-stagger" class="brand-slider" min="0" max="500" value="120" data-cursor="slider">
+                    </div>
+                </div>
+
+                <!-- 5. Resolution & Grid Setup -->
+                <div class="bento-card">
+                    <div class="bento-card-title">05 / Viewport Properties</div>
+                    
+                    <div class="control-slider-container">
+                        <span class="input-label">Aspect Ratio Presets</span>
+                        <div class="btn-group">
+                            <button class="btn-group-item active" data-ratio="16-9" data-cursor="btn">16:9 Landscape</button>
+                            <button class="btn-group-item" data-ratio="9-16" data-cursor="btn">9:16 Vertical</button>
+                            <button class="btn-group-item" data-ratio="1-1" data-cursor="btn">1:1 Square</button>
+                        </div>
+                    </div>
+
+                    <div class="control-slider-container">
+                        <span class="input-label">Canvas Background</span>
+                        <div class="swatch-row">
+                            <button class="swatch active" style="background-color: #F9F9F9;" data-bg="#F9F9F9" title="Clinical White" data-cursor="btn"></button>
+                            <button class="swatch" style="background-color: #EEEEEE;" data-bg="#EEEEEE" title="Surface Concrete" data-cursor="btn"></button>
+                            <button class="swatch" style="background-color: #5D5F5F;" data-bg="#5D5F5F" title="Secondary Slate" data-cursor="btn"></button>
+                            <button class="swatch" style="background-color: #000000;" data-bg="#000000" title="Primary Black" data-cursor="btn"></button>
+                            <button class="swatch" style="background: linear-gradient(135deg, #FFB59E 0%, #FD8863 50%, #9F4122 100%);" data-bg="sunset" title="Sunset Gradient" data-cursor="btn"></button>
+                            <button class="swatch" style="background: radial-gradient(circle, #FD8863 0%, #9F4122 100%);" data-bg="sunset-radial" title="Sunset Radial Glow" data-cursor="btn"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Coordinate Position Card -->
+                <div class="bento-card">
+                    <div class="bento-card-title">06 / Coordinate Position</div>
+                    
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">X Position (Anchor)</span>
+                            <span class="input-label val" id="pos-x-val">50%</span>
+                        </div>
+                        <input type="range" id="slider-pos-x" class="brand-slider" min="0" max="100" value="50" data-cursor="slider">
+                    </div>
+
+                    <div class="control-slider-container">
+                        <div class="slider-row">
+                            <span class="input-label">Y Position (Anchor)</span>
+                            <span class="input-label val" id="pos-y-val">50%</span>
+                        </div>
+                        <input type="range" id="slider-pos-y" class="brand-slider" min="0" max="100" value="50" data-cursor="slider">
+                    </div>
+
+                    <div style="font-size: 9px; line-height: 1.35; color: var(--secondary-slate); margin-top: 6px;">
+                        Origin (0%, 0%) is at the bottom-left corner of the canvas. You can also click and drag directly inside the viewport.
+                    </div>
+                </div>
+
+
+            </div>
+        </aside>
+
+        <!-- Main Viewport workspace -->
+        <main class="main-viewport-container">
+            
+            <!-- Viewport Toolbar HUD -->
+            <div class="viewport-toolbar">
+                <div class="viewport-btn-container">
+                    <button id="btn-toggle-grid" class="viewport-btn active" data-cursor="btn">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">grid_on</span> Grid Overlay
+                    </button>
+                </div>
+                <div style="font-size: 11px; letter-spacing: 2px; color: var(--secondary-slate); padding-top: 8px;">
+                    VIEWPORT_CANVAS_01
+                </div>
+            </div>
+
+            <!-- Viewport Area -->
+            <div class="viewport-frame">
+                <div class="viewport-canvas-container" id="canvas-container">
+                    <!-- Labels -->
+                    <span class="viewport-label top-left">[WP_TL]</span>
+                    <span class="viewport-label top-right">[WP_TR]</span>
+                    <span class="viewport-label bottom-left">[WP_BL]</span>
+                    <span class="viewport-label bottom-right">[WP_BR]</span>
+                    
+                    <!-- Grid Overlay (Optional) -->
+                    <div id="canvas-grid-overlay" class="canvas-grid-overlay"></div>
+                    
+                    <!-- The Interactive Canvas -->
+                    <canvas id="text-canvas" width="800" height="450" data-cursor="canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Timeline Scrubber Console -->
+            <footer class="timeline-console">
+                <div class="timeline-upper-row">
+                    <div class="playback-controls">
+                        <button class="playback-btn" id="btn-play-pause" title="Play / Pause" data-cursor="btn">
+                            <span class="material-symbols-outlined" id="play-icon">play_arrow</span>
+                        </button>
+                        <button class="playback-btn" id="btn-stop" title="Stop & Rewind" data-cursor="btn">
+                            <span class="material-symbols-outlined">stop</span>
+                        </button>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="action-btn primary" id="btn-record" data-cursor="btn">
+                            <span class="status-dot" style="background-color: white; box-shadow: none; width: 8px; height: 8px; margin-right: 2px;"></span>
+                            Record Sequence (Export Video)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="timeline-slider-row">
+                    <span class="time-readout" id="current-frame-readout">0.0s</span>
+                    <div class="timeline-scrubber-container">
+                        <div class="timeline-ticks" id="timeline-ticks"></div>
+                        <input type="range" id="timeline-scrubber" class="timeline-scrubber" min="0" max="100" value="0" data-cursor="slider">
+                    </div>
+                    <span class="time-readout" id="total-duration-readout">3.0s</span>
+                </div>
+            </footer>
+        </main>
+
+        <!-- Scenes Panel (Right Side) -->
+        <aside class="scenes-panel">
+            <div class="scenes-panel-header">
+                <span class="scenes-panel-title">SCENES</span>
+                <div class="scenes-actions">
+                    <button id="btn-add-scene" class="layer-action-btn" data-cursor="btn" title="Add Scene">+</button>
+                    <button id="btn-delete-scene" class="layer-action-btn layer-action-btn--danger" data-cursor="btn" title="Delete Scene">&#x2715;</button>
+                </div>
+            </div>
+            <div id="scene-list" class="scene-list"></div>
+            <div class="scenes-panel-footer">
+                <button id="btn-play-all" class="play-all-btn" data-cursor="btn">
+                    <span class="material-symbols-outlined" style="font-size: 14px;">play_arrow</span>
+                    Play All Scenes
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Export Result Video Preview Modal -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal-box">
+            <h3 class="modal-title">Sequence Render Successful</h3>
+            <div class="modal-content">
+                <p class="input-label" style="text-transform: none; color: var(--primary-black);">
+                    Your text animation sequence has been recorded successfully in the browser. You can preview it below and download the final video file.
+                </p>
+                <div class="video-preview-box">
+                    <video id="export-video-preview" controls loop></video>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="action-btn" id="btn-close-modal" data-cursor="btn">Dismiss</button>
+                <button class="action-btn primary" id="btn-download-video" data-cursor="btn">
+                    <span class="material-symbols-outlined" style="font-size: 14px;">download</span> Download Video (.webm)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Alert notifications -->
+    <div id="toast-message" class="toast-alert">Notification placeholder</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
